@@ -25,3 +25,6 @@ Format
 
 The arguments are <i>minlat minlon maxlat maxlon zoom url</i>. If you don't specify <i>-o outfile</i> the PNG will be
 written to the standard output. URLs should include <i>{z}, {x},</i> and <i>{y}</i> tokens for tile zoom, x, and y.
+
+The <code>--</code> is to keep getopt, especially GNU getopt, from interpreting the minus signs in latitudes or longitudes
+as option flags.
