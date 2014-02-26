@@ -155,6 +155,9 @@ int main(int argc, char **argv) {
 				printf("looks like png\n");
 			} else if (data.len >= 2 && memcmp(data.buf, "\xFF\xD8", 2) == 0) {
 				printf("looks like jpeg\n");
+			} else {
+				fprintf(stderr, "Don't recognize file format\n");
+				exit(EXIT_FAILURE);
 			}
 
 			free(data.buf);
