@@ -30,9 +30,10 @@ size_t curl_receive(char *ptr, size_t size, size_t nmemb, void *v) {
 	if (data->len + size * nmemb >= data->nalloc) {
 		data->nalloc += size * nmemb + 50000;
 		data->buf = realloc(data->buf, data->nalloc);
-		memcpy(data->buf + data->len, ptr, size * nmemb);
-		data->len += size * nmemb;
 	}
+
+	memcpy(data->buf + data->len, ptr, size * nmemb);
+	data->len += size * nmemb;
 
 	return size * nmemb;
 };
