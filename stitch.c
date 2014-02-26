@@ -160,16 +160,24 @@ int main(int argc, char **argv) {
 	unsigned int tx2 = x2 >> (32 - zoom);
 	unsigned int ty2 = y2 >> (32 - zoom);
 
+	unsigned int xa = (x1 >> (32 - (zoom + 8))) & 0xFF;
+	unsigned int ya = (y1 >> (32 - (zoom + 8))) & 0xFF;
+
+	unsigned int xb = 255 - ((x2 >> (32 - (zoom + 8))) & 0xFF);
+	unsigned int yb = 255 - ((y2 >> (32 - (zoom + 8))) & 0xFF);
+
 	fprintf(stderr, "at zoom level %d, that's %u/%u to %u/%u\n", zoom,
 		tx1, ty1, tx2, ty2);
 
-	long long dim = (long long) (tx2 - tx1 + 1) * (ty2 - ty1 + 1) * tilesize * tilesize;
-	int width = (tx2 - tx1 + 1) * tilesize;
-	int height = (ty2 - ty1 + 1) * tilesize;
+	fprintf(stderr, "borders %u,%u %u,%u\n", xa, ya, xb, yb);
+
+	int width = (tx2 - tx1 + 1) * tilesize - xa - xb;
+	int height = (ty2 - ty1 + 1) * tilesize - ya - yb;
+	fprintf(stderr, "%dx%d\n", width, height);
+
+	long long dim = (long long) width * height;
 	if (dim > 10000 * 10000) {
-		fprintf(stderr, "that's too big (%dx%d)\n",
-			(tx2 - tx1 + 1) * tilesize,
-			(ty2 - ty1 + 1) * tilesize);
+		fprintf(stderr, "that's too big\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -181,8 +189,8 @@ int main(int argc, char **argv) {
 	unsigned int tx, ty;
 	for (tx = tx1; tx <= tx2; tx++) {
 		for (ty = ty1; ty <= ty2; ty++) {
-			int xoff = (tx - tx1) * tilesize;
-			int yoff = (ty - ty1) * tilesize;
+			int xoff = (tx - tx1) * tilesize - xa;
+			int yoff = (ty - ty1) * tilesize - ya;
 
 			int end = strlen(url) + 50;
 			char url2[end];
@@ -256,6 +264,13 @@ int main(int argc, char **argv) {
 			int x, y;
 			for (y = 0; y < i->height; y++) {
 				for (x = 0; x < i->width; x++) {
+					int xd = x + xoff;
+					int yd = y + yoff;
+
+					if (xd < 0 || yd < 0 || xd >= width || yd >= height) {
+						continue;
+					}
+
 					if (i->depth == 4) {
 						buf[((y + yoff) * width + x + xoff) * 4 + 0] = i->buf[(y * i->width + x) * 4 + 0];
 						buf[((y + yoff) * width + x + xoff) * 4 + 1] = i->buf[(y * i->width + x) * 4 + 1];
