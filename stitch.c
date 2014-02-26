@@ -114,6 +114,8 @@ int main(int argc, char **argv) {
 					} else if (cp[1] == 'y') {
 						sprintf(out, "%u", ty);
 						out = out + strlen(out);
+					} else if (cp[1] == 's') {
+						*out++ = 'a' + rand() % 3;
 					} else {
 						fprintf(stderr, "Unknown format token %c\n", cp[1]);
 						exit(EXIT_FAILURE);
