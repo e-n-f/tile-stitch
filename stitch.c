@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <curl/curl.h>
 #include <jpeglib.h>
+#include <png.h>
 
 void usage(char **argv) {
 	fprintf(stderr, "Usage: %s [-o outfile] minlat minlon maxlat maxlon zoom http://whatever/{z}/{x}/{y}.png\n", argv[0]);
@@ -78,6 +79,11 @@ struct image *read_jpeg(char *s, int len) {
 	return i;
 }
 
+static void fail(png_structp png_ptr, png_const_charp error_msg) {
+	fprintf(stderr, "PNG error %s\n", error_msg);
+	exit(EXIT_FAILURE);
+}
+
 int main(int argc, char **argv) {
 	extern int optind;
 	extern char *optarg;
@@ -119,10 +125,12 @@ int main(int argc, char **argv) {
 	unsigned int tx2 = x2 >> (32 - zoom);
 	unsigned int ty2 = y2 >> (32 - zoom);
 
-	printf("at zoom level %d, that's %u/%u to %u/%u\n", zoom,
+	fprintf(stderr, "at zoom level %d, that's %u/%u to %u/%u\n", zoom,
 		tx1, ty1, tx2, ty2);
 
 	long long dim = (long long) (tx2 - tx1 + 1) * (ty2 - ty1 + 1) * tilesize * tilesize;
+	int width = (tx2 - tx1 + 1) * tilesize;
+	int height = (ty2 - ty1 + 1) * tilesize;
 	if (dim > 10000 * 10000) {
 		fprintf(stderr, "that's too big (%dx%d)\n",
 			(tx2 - tx1 + 1) * tilesize,
@@ -138,6 +146,9 @@ int main(int argc, char **argv) {
 	unsigned int tx, ty;
 	for (tx = tx1; tx <= tx2; tx++) {
 		for (ty = ty1; ty <= ty2; ty++) {
+			int xoff = (tx - tx1) * tilesize;
+			int yoff = (ty - ty1) * tilesize;
+
 			int end = strlen(url) + 50;
 			char url2[end];
 			char *cp;
@@ -168,7 +179,7 @@ int main(int argc, char **argv) {
 			}
 
 			*out = '\0';
-			printf("%s\n", url2);
+			fprintf(stderr, "%s\n", url2);
 
 			CURL *curl = curl_easy_init();
 			if (curl == NULL) {
@@ -193,10 +204,13 @@ int main(int argc, char **argv) {
 				exit(EXIT_FAILURE);
 			}
 
+			struct image *i;
+
 			if (data.len >= 4 && memcmp(data.buf, "\211PNG", 4) == 0) {
-				printf("looks like png\n");
+				fprintf(stderr, "looks like png\n");
+				exit(EXIT_FAILURE);
 			} else if (data.len >= 2 && memcmp(data.buf, "\xFF\xD8", 2) == 0) {
-				printf("looks like jpeg\n");
+				i = read_jpeg(data.buf, data.len);
 			} else {
 				fprintf(stderr, "Don't recognize file format\n");
 				exit(EXIT_FAILURE);
@@ -204,8 +218,59 @@ int main(int argc, char **argv) {
 
 			free(data.buf);
 			curl_easy_cleanup(curl);
+
+			int x, y;
+			for (y = 0; y < i->height; y++) {
+				for (x = 0; x < i->width; x++) {
+					if (i->depth == 4) {
+						buf[((y + yoff) * width + x + xoff) * 4 + 0] = i->buf[(y * i->width + x) * 4 + 0];
+						buf[((y + yoff) * width + x + xoff) * 4 + 1] = i->buf[(y * i->width + x) * 4 + 1];
+						buf[((y + yoff) * width + x + xoff) * 4 + 2] = i->buf[(y * i->width + x) * 4 + 2];
+						buf[((y + yoff) * width + x + xoff) * 4 + 3] = i->buf[(y * i->width + x) * 4 + 3];
+					} else if (i->depth == 3) {
+						buf[((y + yoff) * width + x + xoff) * 4 + 0] = i->buf[(y * i->width + x) * 3 + 0];
+						buf[((y + yoff) * width + x + xoff) * 4 + 1] = i->buf[(y * i->width + x) * 3 + 1];
+						buf[((y + yoff) * width + x + xoff) * 4 + 2] = i->buf[(y * i->width + x) * 3 + 2];
+						buf[((y + yoff) * width + x + xoff) * 4 + 3] = 255;
+					} else {
+						buf[((y + yoff) * width + x + xoff) * 4 + 0] = i->buf[(y * i->width + x) * i->depth + 0];
+						buf[((y + yoff) * width + x + xoff) * 4 + 1] = i->buf[(y * i->width + x) * i->depth + 0];
+						buf[((y + yoff) * width + x + xoff) * 4 + 2] = i->buf[(y * i->width + x) * i->depth + 0];
+						buf[((y + yoff) * width + x + xoff) * 4 + 3] = 255;
+					}
+				}
+			}
+
+			free(i->buf);
+			free(i);
 		}
 	}
+
+	unsigned char *rows[height];
+	for (i = 0 ; i < height; i++) {
+		rows[i] = buf + i * (4 * width);
+	}
+
+	png_structp png_ptr;
+	png_infop info_ptr;
+
+	png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, fail, fail, fail);
+	if (png_ptr == NULL) {
+		fprintf(stderr, "PNG failure (write struct)\n");
+		exit(EXIT_FAILURE);
+	}
+	info_ptr = png_create_info_struct(png_ptr);
+	if (info_ptr == NULL) {
+		png_destroy_write_struct(&png_ptr, NULL);
+		fprintf(stderr, "PNG failure (info struct)\n");
+		exit(EXIT_FAILURE);
+	}
+
+	png_set_IHDR(png_ptr, info_ptr, width, height, 8, PNG_COLOR_TYPE_RGB_ALPHA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+	png_set_rows(png_ptr, info_ptr, rows);
+	png_init_io(png_ptr, stdout);
+	png_write_png(png_ptr, info_ptr, 0, NULL);
+	png_destroy_write_struct(&png_ptr, &info_ptr);
 
 	return 0;
 }
