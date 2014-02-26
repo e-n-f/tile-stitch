@@ -116,6 +116,19 @@ int main(int argc, char **argv) {
 	int zoom = atoi(argv[optind + 4]);
 	char *url = argv[optind + 5];
 
+	if (outfile == NULL && isatty(1)) {
+		fprintf(stderr, "Didn't specify -o and standard output is a terminal\n");
+		exit(EXIT_FAILURE);
+	}
+	FILE *outfp = stdout;
+	if (outfile != NULL) {
+		outfp = fopen(outfile, "wb");
+		if (outfp == NULL) {
+			perror(outfile);
+			exit(EXIT_FAILURE);
+		}
+	}
+	
 	unsigned int x1, y1, x2, y2;
 	latlon2tile(maxlat, minlon, 32, &x1, &y1);
 	latlon2tile(minlat, maxlon, 32, &x2, &y2);
@@ -268,9 +281,13 @@ int main(int argc, char **argv) {
 
 	png_set_IHDR(png_ptr, info_ptr, width, height, 8, PNG_COLOR_TYPE_RGB_ALPHA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 	png_set_rows(png_ptr, info_ptr, rows);
-	png_init_io(png_ptr, stdout);
+	png_init_io(png_ptr, outfp);
 	png_write_png(png_ptr, info_ptr, 0, NULL);
 	png_destroy_write_struct(&png_ptr, &info_ptr);
+
+	if (outfile != NULL) {
+		fclose(outfp);
+	}
 
 	return 0;
 }
