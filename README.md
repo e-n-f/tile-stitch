@@ -28,3 +28,10 @@ written to the standard output. URLs should include <i>{z}, {x},</i> and <i>{y}<
 
 The <code>--</code> is to keep getopt, especially GNU getopt, from interpreting the minus signs in latitudes or longitudes
 as option flags.
+
+Requirements
+------------
+
+  * libcurl to retrieve the tiles
+  * libjpeg >= 8 for jpeg_mem_src
+  * libpng >= 1.6 for the simplified reader API
