@@ -135,8 +135,8 @@ int main(int argc, char **argv) {
 			}
 
 			struct data data;
+			data.buf = NULL;
 			data.len = 0;
-			data.buf = 0;
 			data.nalloc = 0;
 
 			curl_easy_setopt(curl, CURLOPT_URL, url2);
@@ -151,8 +151,13 @@ int main(int argc, char **argv) {
 				exit(EXIT_FAILURE);
 			}
 
-			printf("got %d bytes\n", data.len);
+			if (data.len >= 4 && memcmp(data.buf, "\211PNG", 4) == 0) {
+				printf("looks like png\n");
+			} else if (data.len >= 2 && memcmp(data.buf, "\xFF\xD8", 2) == 0) {
+				printf("looks like jpeg\n");
+			}
 
+			free(data.buf);
 			curl_easy_cleanup(curl);
 		}
 	}
