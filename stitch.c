@@ -23,6 +23,7 @@ int main(int argc, char **argv) {
 	int i;
 
 	char *outfile = NULL;
+	int tilesize = 256;
 
 	while ((i = getopt(argc, argv, "o:")) != -1) {
 		switch (i) {
@@ -54,4 +55,25 @@ int main(int argc, char **argv) {
 	printf("at zoom level %d, that's %d/%d to %d/%d\n", zoom,
 		x1 >> (32 - zoom), y1 >> (32 - zoom),
 		x2 >> (32 - zoom), y2 >> (32 - zoom));
+
+	unsigned int tx1 = x1 >> (32 - zoom);
+	unsigned int ty1 = y1 >> (32 - zoom);
+	unsigned int tx2 = x2 >> (32 - zoom);
+	unsigned int ty2 = y2 >> (32 - zoom);
+
+	long long dim = (long long) (tx2 - tx1 + 1) * (ty2 - ty1 + 1) * tilesize * tilesize;
+	if (dim > 10000 * 10000) {
+		fprintf(stderr, "that's too big (%dx%d)\n",
+			(tx2 - tx1 + 1) * tilesize,
+			(ty2 - ty1 + 1) * tilesize);
+		exit(EXIT_FAILURE);
+	}
+
+	unsigned char *buf = malloc(dim * 4);
+	if (buf == NULL) {
+		fprintf(stderr, "Can't allocate memory for %lld\n", dim * 4);
+	}
+	
+	unsigned int tx, ty;
+
 }
