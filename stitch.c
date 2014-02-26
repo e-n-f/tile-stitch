@@ -84,6 +84,45 @@ static void fail(png_structp png_ptr, png_const_charp error_msg) {
 	exit(EXIT_FAILURE);
 }
 
+void png_read_data(png_structp png_ptr, png_bytep out, png_size_t toread) {
+	struct data *d = (struct data *) png_get_io_ptr(png_ptr);
+	memcpy(out, d->buf + d->len, toread);
+	d->len+= toread;
+}
+
+struct image *read_png(char *s, int len) {
+	png_structp png_ptr;
+	png_infop info_ptr;
+
+	png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, fail, fail, fail);
+	if (png_ptr == NULL) {
+		fprintf(stderr, "PNG failure (write struct)\n");
+		exit(EXIT_FAILURE);
+	}
+	info_ptr = png_create_info_struct(png_ptr);
+	if (info_ptr == NULL) {
+		png_destroy_write_struct(&png_ptr, NULL);
+		fprintf(stderr, "PNG failure (info struct)\n");
+		exit(EXIT_FAILURE);
+	}
+
+	struct data d;
+	d.buf = s;
+	d.len = 0;
+	d.nalloc = len;
+
+	png_set_read_fn(png_ptr, &d, png_read_data);
+	png_read_info(png_ptr, info_ptr);
+
+	struct image *i = malloc(sizeof(struct image));
+	i->width = png_get_image_width(png_ptr, info_ptr);
+	i->height = png_get_image_height(png_ptr, info_ptr);
+
+	printf("%dx%d\n", i->width, i->height);
+
+	exit(1);
+}
+
 int main(int argc, char **argv) {
 	extern int optind;
 	extern char *optarg;
@@ -219,9 +258,8 @@ int main(int argc, char **argv) {
 
 			struct image *i;
 
-			if (data.len >= 4 && memcmp(data.buf, "\211PNG", 4) == 0) {
-				fprintf(stderr, "looks like png\n");
-				exit(EXIT_FAILURE);
+			if (data.len >= 4 && memcmp(data.buf, "\x89PNG", 4) == 0) {
+				i = read_png(data.buf, data.len);
 			} else if (data.len >= 2 && memcmp(data.buf, "\xFF\xD8", 2) == 0) {
 				i = read_jpeg(data.buf, data.len);
 			} else {
