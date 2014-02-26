@@ -4,6 +4,7 @@
 #include <math.h>
 #include <unistd.h>
 #include <curl/curl.h>
+#include <jpeglib.h>
 
 void usage(char **argv) {
 	fprintf(stderr, "Usage: %s [-o outfile] minlat minlon maxlat maxlon zoom http://whatever/{z}/{x}/{y}.png\n", argv[0]);
@@ -24,6 +25,13 @@ struct data {
 	int nalloc;
 };
 
+struct image {
+	unsigned char *buf;
+	int depth;
+	int width;
+	int height;
+};
+
 size_t curl_receive(char *ptr, size_t size, size_t nmemb, void *v) {
 	struct data *data = v;
 
@@ -37,6 +45,38 @@ size_t curl_receive(char *ptr, size_t size, size_t nmemb, void *v) {
 
 	return size * nmemb;
 };
+
+struct image *read_jpeg(char *s, int len) {
+	struct jpeg_decompress_struct cinfo;
+	struct jpeg_error_mgr jerr;
+
+	cinfo.err = jpeg_std_error(&jerr);
+	jpeg_create_decompress(&cinfo);
+	jpeg_mem_src(&cinfo, (unsigned char *) s, len);
+	jpeg_read_header(&cinfo, TRUE);
+	jpeg_start_decompress(&cinfo);
+
+	int row_stride = cinfo.output_width * cinfo.output_components;
+	JSAMPARRAY buffer = (*cinfo.mem->alloc_sarray) ((j_common_ptr) &cinfo, JPOOL_IMAGE, row_stride, 1);
+
+	struct image *i = malloc(sizeof(struct image));
+	i->buf = malloc(cinfo.output_width * cinfo.output_height * cinfo.output_components);
+	i->width = cinfo.output_width;
+	i->height = cinfo.output_height;
+	i->depth = cinfo.output_components;
+
+	unsigned char *here = i->buf;
+	while (cinfo.output_scanline < cinfo.output_height) {
+		jpeg_read_scanlines(&cinfo, buffer, 1);
+		memcpy(here, buffer[0], row_stride);
+		here += row_stride;
+	}
+
+	jpeg_finish_decompress(&cinfo);
+	jpeg_destroy_decompress(&cinfo);
+
+	return i;
+}
 
 int main(int argc, char **argv) {
 	extern int optind;
