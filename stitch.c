@@ -18,6 +18,25 @@ void latlon2tile(double lat, double lon, int zoom, unsigned int *x, unsigned int
 	*y = n * (1 - (log(tan(lat_rad) + 1/cos(lat_rad)) / M_PI)) / 2;
 }
 
+struct data {
+	char *buf;
+	int len;
+	int nalloc;
+};
+
+size_t curl_receive(char *ptr, size_t size, size_t nmemb, void *v) {
+	struct data *data = v;
+
+	if (data->len + size * nmemb >= data->nalloc) {
+		data->nalloc += size * nmemb + 50000;
+		data->buf = realloc(data->buf, data->nalloc);
+		memcpy(data->buf + data->len, ptr, size * nmemb);
+		data->len += size * nmemb;
+	}
+
+	return size * nmemb;
+};
+
 int main(int argc, char **argv) {
 	extern int optind;
 	extern char *optarg;
@@ -114,8 +133,15 @@ int main(int argc, char **argv) {
 				exit(EXIT_FAILURE);
 			}
 
+			struct data data;
+			data.len = 0;
+			data.buf = 0;
+			data.nalloc = 0;
+
 			curl_easy_setopt(curl, CURLOPT_URL, url2);
 			curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+			curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
+			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_receive);
 
 			CURLcode res = curl_easy_perform(curl);
 			if (res != CURLE_OK) {
@@ -124,7 +150,11 @@ int main(int argc, char **argv) {
 				exit(EXIT_FAILURE);
 			}
 
+			printf("got %d bytes\n", data.len);
+
 			curl_easy_cleanup(curl);
 		}
 	}
+
+	return 0;
 }
