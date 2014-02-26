@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 #include <unistd.h>
 #include <curl/curl.h>
@@ -47,19 +48,19 @@ int main(int argc, char **argv) {
 	double maxlat = atof(argv[optind + 2]);
 	double maxlon = atof(argv[optind + 3]);
 	int zoom = atoi(argv[optind + 4]);
+	char *url = argv[optind + 5];
 
 	unsigned int x1, y1, x2, y2;
 	latlon2tile(maxlat, minlon, 32, &x1, &y1);
 	latlon2tile(minlat, maxlon, 32, &x2, &y2);
 
-	printf("at zoom level %d, that's %d/%d to %d/%d\n", zoom,
-		x1 >> (32 - zoom), y1 >> (32 - zoom),
-		x2 >> (32 - zoom), y2 >> (32 - zoom));
-
 	unsigned int tx1 = x1 >> (32 - zoom);
 	unsigned int ty1 = y1 >> (32 - zoom);
 	unsigned int tx2 = x2 >> (32 - zoom);
 	unsigned int ty2 = y2 >> (32 - zoom);
+
+	printf("at zoom level %d, that's %u/%u to %u/%u\n", zoom,
+		tx1, ty1, tx2, ty2);
 
 	long long dim = (long long) (tx2 - tx1 + 1) * (ty2 - ty1 + 1) * tilesize * tilesize;
 	if (dim > 10000 * 10000) {
@@ -75,5 +76,37 @@ int main(int argc, char **argv) {
 	}
 	
 	unsigned int tx, ty;
+	for (tx = tx1; tx <= tx2; tx++) {
+		for (ty = ty1; ty <= ty2; ty++) {
+			int end = strlen(url) + 50;
+			char url2[end];
+			char *cp;
+			char *out = url2;
 
+			for (cp = url; *cp && out - url2 < end - 10; cp++) {
+				if (*cp == '{' && cp[2] == '}') {
+					if (cp[1] == 'z') {
+						sprintf(out, "%d", zoom);
+						out = out + strlen(out);
+					} else if (cp[1] == 'x') {
+						sprintf(out, "%u", tx);
+						out = out + strlen(out);
+					} else if (cp[1] == 'y') {
+						sprintf(out, "%u", ty);
+						out = out + strlen(out);
+					} else {
+						fprintf(stderr, "Unknown format token %c\n", cp[1]);
+						exit(EXIT_FAILURE);
+					}
+
+					cp += 2;
+				} else {
+					*out++ = *cp;
+				}
+			}
+
+			*out = '\0';
+			printf("%s\n", url2);
+		}
+	}
 }
