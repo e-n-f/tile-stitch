@@ -107,6 +107,24 @@ int main(int argc, char **argv) {
 
 			*out = '\0';
 			printf("%s\n", url2);
+
+			CURL *curl = curl_easy_init();
+			if (curl == NULL) {
+				fprintf(stderr, "Curl won't start\n");
+				exit(EXIT_FAILURE);
+			}
+
+			curl_easy_setopt(curl, CURLOPT_URL, url2);
+			curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+
+			CURLcode res = curl_easy_perform(curl);
+			if (res != CURLE_OK) {
+				fprintf(stderr, "Can't retrieve %s: %s\n", url2,
+					curl_easy_strerror(res));
+				exit(EXIT_FAILURE);
+			}
+
+			curl_easy_cleanup(curl);
 		}
 	}
 }
