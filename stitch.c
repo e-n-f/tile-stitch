@@ -8,7 +8,7 @@
 #include <png.h>
 
 void usage(char **argv) {
-	fprintf(stderr, "Usage: %s [-o outfile] minlat minlon maxlat maxlon zoom http://whatever/{z}/{x}/{y}.png\n", argv[0]);
+	fprintf(stderr, "Usage: %s [-o outfile] minlat minlon maxlat maxlon zoom http://whatever/{z}/{x}/{y}.png ...\n", argv[0]);
 }
 
 // http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
@@ -126,7 +126,7 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	if (argc - optind != 6) {
+	if (argc - optind < 6) {
 		usage(argv);
 		exit(EXIT_FAILURE);
 	}
@@ -136,7 +136,6 @@ int main(int argc, char **argv) {
 	double maxlat = atof(argv[optind + 2]);
 	double maxlon = atof(argv[optind + 3]);
 	int zoom = atoi(argv[optind + 4]);
-	char *url = argv[optind + 5];
 
 	if (outfile == NULL && isatty(1)) {
 		fprintf(stderr, "Didn't specify -o and standard output is a terminal\n");
@@ -182,6 +181,7 @@ int main(int argc, char **argv) {
 	}
 
 	unsigned char *buf = malloc(dim * 4);
+	memset(buf, '\0', dim * 4);
 	if (buf == NULL) {
 		fprintf(stderr, "Can't allocate memory for %lld\n", dim * 4);
 	}
@@ -192,106 +192,129 @@ int main(int argc, char **argv) {
 			int xoff = (tx - tx1) * tilesize - xa;
 			int yoff = (ty - ty1) * tilesize - ya;
 
-			int end = strlen(url) + 50;
-			char url2[end];
-			char *cp;
-			char *out = url2;
+			int opt;
+			for (opt = optind + 5; opt < argc; opt++) {
+				char *url = argv[opt];
 
-			for (cp = url; *cp && out - url2 < end - 10; cp++) {
-				if (*cp == '{' && cp[2] == '}') {
-					if (cp[1] == 'z') {
-						sprintf(out, "%d", zoom);
-						out = out + strlen(out);
-					} else if (cp[1] == 'x') {
-						sprintf(out, "%u", tx);
-						out = out + strlen(out);
-					} else if (cp[1] == 'y') {
-						sprintf(out, "%u", ty);
-						out = out + strlen(out);
-					} else if (cp[1] == 's') {
-						*out++ = 'a' + rand() % 3;
+				int end = strlen(url) + 50;
+				char url2[end];
+				char *cp;
+				char *out = url2;
+
+				for (cp = url; *cp && out - url2 < end - 10; cp++) {
+					if (*cp == '{' && cp[2] == '}') {
+						if (cp[1] == 'z') {
+							sprintf(out, "%d", zoom);
+							out = out + strlen(out);
+						} else if (cp[1] == 'x') {
+							sprintf(out, "%u", tx);
+							out = out + strlen(out);
+						} else if (cp[1] == 'y') {
+							sprintf(out, "%u", ty);
+							out = out + strlen(out);
+						} else if (cp[1] == 's') {
+							*out++ = 'a' + rand() % 3;
+						} else {
+							fprintf(stderr, "Unknown format token %c\n", cp[1]);
+							exit(EXIT_FAILURE);
+						}
+
+						cp += 2;
 					} else {
-						fprintf(stderr, "Unknown format token %c\n", cp[1]);
-						exit(EXIT_FAILURE);
+						*out++ = *cp;
 					}
+				}
 
-					cp += 2;
+				*out = '\0';
+				fprintf(stderr, "%s\n", url2);
+
+				CURL *curl = curl_easy_init();
+				if (curl == NULL) {
+					fprintf(stderr, "Curl won't start\n");
+					exit(EXIT_FAILURE);
+				}
+
+				struct data data;
+				data.buf = NULL;
+				data.len = 0;
+				data.nalloc = 0;
+
+				curl_easy_setopt(curl, CURLOPT_URL, url2);
+				curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+				curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
+				curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_receive);
+
+				CURLcode res = curl_easy_perform(curl);
+				if (res != CURLE_OK) {
+					fprintf(stderr, "Can't retrieve %s: %s\n", url2,
+						curl_easy_strerror(res));
+					exit(EXIT_FAILURE);
+				}
+
+				struct image *i;
+
+				if (data.len >= 4 && memcmp(data.buf, "\x89PNG", 4) == 0) {
+					i = read_png(data.buf, data.len);
+				} else if (data.len >= 2 && memcmp(data.buf, "\xFF\xD8", 2) == 0) {
+					i = read_jpeg(data.buf, data.len);
 				} else {
-					*out++ = *cp;
+					fprintf(stderr, "Don't recognize file format\n");
+
+					free(data.buf);
+					curl_easy_cleanup(curl);
+					continue;
 				}
-			}
 
-			*out = '\0';
-			fprintf(stderr, "%s\n", url2);
+				free(data.buf);
+				curl_easy_cleanup(curl);
 
-			CURL *curl = curl_easy_init();
-			if (curl == NULL) {
-				fprintf(stderr, "Curl won't start\n");
-				exit(EXIT_FAILURE);
-			}
+				int x, y;
+				for (y = 0; y < i->height; y++) {
+					for (x = 0; x < i->width; x++) {
+						int xd = x + xoff;
+						int yd = y + yoff;
 
-			struct data data;
-			data.buf = NULL;
-			data.len = 0;
-			data.nalloc = 0;
+						if (xd < 0 || yd < 0 || xd >= width || yd >= height) {
+							continue;
+						}
 
-			curl_easy_setopt(curl, CURLOPT_URL, url2);
-			curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-			curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
-			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_receive);
+						if (i->depth == 4) {
+							double r = buf[((y + yoff) * width + x + xoff) * 4 + 0] / 255.0;
+							double g = buf[((y + yoff) * width + x + xoff) * 4 + 1] / 255.0;
+							double b = buf[((y + yoff) * width + x + xoff) * 4 + 2] / 255.0;
+							double a = buf[((y + yoff) * width + x + xoff) * 4 + 3] / 255.0;
 
-			CURLcode res = curl_easy_perform(curl);
-			if (res != CURLE_OK) {
-				fprintf(stderr, "Can't retrieve %s: %s\n", url2,
-					curl_easy_strerror(res));
-				exit(EXIT_FAILURE);
-			}
+							double nr = i->buf[(y * i->width + x) * 4 + 0] / 255.0;
+							double ng = i->buf[(y * i->width + x) * 4 + 1] / 255.0;
+							double nb = i->buf[(y * i->width + x) * 4 + 2] / 255.0;
+							double na = i->buf[(y * i->width + x) * 4 + 3] / 255.0;
 
-			struct image *i;
+							r = r * (1 - na) + nr * na;
+							g = g * (1 - na) + ng * na;
+							b = b * (1 - na) + nb * na;
+							a = a * (1 - na) + na * na;
 
-			if (data.len >= 4 && memcmp(data.buf, "\x89PNG", 4) == 0) {
-				i = read_png(data.buf, data.len);
-			} else if (data.len >= 2 && memcmp(data.buf, "\xFF\xD8", 2) == 0) {
-				i = read_jpeg(data.buf, data.len);
-			} else {
-				fprintf(stderr, "Don't recognize file format\n");
-				exit(EXIT_FAILURE);
-			}
-
-			free(data.buf);
-			curl_easy_cleanup(curl);
-
-			int x, y;
-			for (y = 0; y < i->height; y++) {
-				for (x = 0; x < i->width; x++) {
-					int xd = x + xoff;
-					int yd = y + yoff;
-
-					if (xd < 0 || yd < 0 || xd >= width || yd >= height) {
-						continue;
-					}
-
-					if (i->depth == 4) {
-						buf[((y + yoff) * width + x + xoff) * 4 + 0] = i->buf[(y * i->width + x) * 4 + 0];
-						buf[((y + yoff) * width + x + xoff) * 4 + 1] = i->buf[(y * i->width + x) * 4 + 1];
-						buf[((y + yoff) * width + x + xoff) * 4 + 2] = i->buf[(y * i->width + x) * 4 + 2];
-						buf[((y + yoff) * width + x + xoff) * 4 + 3] = i->buf[(y * i->width + x) * 4 + 3];
-					} else if (i->depth == 3) {
-						buf[((y + yoff) * width + x + xoff) * 4 + 0] = i->buf[(y * i->width + x) * 3 + 0];
-						buf[((y + yoff) * width + x + xoff) * 4 + 1] = i->buf[(y * i->width + x) * 3 + 1];
-						buf[((y + yoff) * width + x + xoff) * 4 + 2] = i->buf[(y * i->width + x) * 3 + 2];
-						buf[((y + yoff) * width + x + xoff) * 4 + 3] = 255;
-					} else {
-						buf[((y + yoff) * width + x + xoff) * 4 + 0] = i->buf[(y * i->width + x) * i->depth + 0];
-						buf[((y + yoff) * width + x + xoff) * 4 + 1] = i->buf[(y * i->width + x) * i->depth + 0];
-						buf[((y + yoff) * width + x + xoff) * 4 + 2] = i->buf[(y * i->width + x) * i->depth + 0];
-						buf[((y + yoff) * width + x + xoff) * 4 + 3] = 255;
+							buf[((y + yoff) * width + x + xoff) * 4 + 0] = r * 255.0;
+							buf[((y + yoff) * width + x + xoff) * 4 + 1] = g * 255.0;
+							buf[((y + yoff) * width + x + xoff) * 4 + 2] = b * 255.0;
+							buf[((y + yoff) * width + x + xoff) * 4 + 3] = a * 255.0;
+						} else if (i->depth == 3) {
+							buf[((y + yoff) * width + x + xoff) * 4 + 0] = i->buf[(y * i->width + x) * 3 + 0];
+							buf[((y + yoff) * width + x + xoff) * 4 + 1] = i->buf[(y * i->width + x) * 3 + 1];
+							buf[((y + yoff) * width + x + xoff) * 4 + 2] = i->buf[(y * i->width + x) * 3 + 2];
+							buf[((y + yoff) * width + x + xoff) * 4 + 3] = 255;
+						} else {
+							buf[((y + yoff) * width + x + xoff) * 4 + 0] = i->buf[(y * i->width + x) * i->depth + 0];
+							buf[((y + yoff) * width + x + xoff) * 4 + 1] = i->buf[(y * i->width + x) * i->depth + 0];
+							buf[((y + yoff) * width + x + xoff) * 4 + 2] = i->buf[(y * i->width + x) * i->depth + 0];
+							buf[((y + yoff) * width + x + xoff) * 4 + 3] = 255;
+						}
 					}
 				}
-			}
 
-			free(i->buf);
-			free(i);
+				free(i->buf);
+				free(i);
+			}
 		}
 	}
 
