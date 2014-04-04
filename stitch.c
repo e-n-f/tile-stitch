@@ -137,6 +137,11 @@ int main(int argc, char **argv) {
 	double maxlon = atof(argv[optind + 3]);
 	int zoom = atoi(argv[optind + 4]);
 
+	if (zoom < 0) {
+		fprintf(stderr, "Zoom %d less than 0\n", zoom);
+		exit(EXIT_FAILURE);
+	}
+
 	if (outfile == NULL && isatty(1)) {
 		fprintf(stderr, "Didn't specify -o and standard output is a terminal\n");
 		exit(EXIT_FAILURE);
