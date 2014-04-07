@@ -93,6 +93,10 @@ struct read_state {
 void user_read_data(png_structp png_ptr, png_bytep data, png_size_t length) {
 	struct read_state *state = png_get_io_ptr(png_ptr);
 
+	if (state->off + length > state->len) {
+		length = state->len - state->off;
+	}
+
 	memcpy(data, state->base + state->off, length);
 	state->off += length;
 }
