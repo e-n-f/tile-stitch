@@ -34,4 +34,4 @@ Requirements
 
   * libcurl to retrieve the tiles
   * libjpeg >= 8 for jpeg_mem_src
-  * libpng >= 1.6 for the simplified reader API
+  * libpng

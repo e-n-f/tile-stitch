@@ -84,25 +84,66 @@ static void fail(png_structp png_ptr, png_const_charp error_msg) {
 	exit(EXIT_FAILURE);
 }
 
+struct read_state {
+	char *base;
+	int off;
+	int len;
+};
+
+void user_read_data(png_structp png_ptr, png_bytep data, png_size_t length) {
+	struct read_state *state = png_get_io_ptr(png_ptr);
+
+	memcpy(data, state->base + state->off, length);
+	state->off += length;
+}
+
 struct image *read_png(char *s, int len) {
-	png_image image;
-	memset(&image, 0, (sizeof image));
-	image.version = PNG_IMAGE_VERSION;
+	png_structp png_ptr;
+	png_infop info_ptr;
 
-	struct image *i = malloc(sizeof(struct image));
+	struct read_state state;
+	state.base = s;
+	state.off = 0;
+	state.len = len;
 
-	png_image_begin_read_from_memory(&image, s, len);
-	image.format = PNG_FORMAT_RGBA;
-
-	i->buf = malloc(PNG_IMAGE_SIZE(image));
-	i->width = image.width;
-	i->height = image.height; 
-	i->depth = 4;
-	if (!png_image_finish_read(&image, NULL, i->buf, 0, NULL)) {
-		fprintf(stderr, "PNG decode failed\n");
+	png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, fail, fail, fail);
+	if (png_ptr == NULL) {
+		fprintf(stderr, "PNG init failed\n");
 		exit(EXIT_FAILURE);
 	}
 
+	info_ptr = png_create_info_struct(png_ptr);
+	if (info_ptr == NULL) {
+		fprintf(stderr, "PNG init failed\n");
+		exit(EXIT_FAILURE);
+	}
+
+	png_set_read_fn(png_ptr, &state, user_read_data);
+	png_set_sig_bytes(png_ptr, 0);
+
+	png_read_png(png_ptr, info_ptr, PNG_TRANSFORM_STRIP_16 | PNG_TRANSFORM_PACKING | PNG_TRANSFORM_EXPAND, NULL);
+
+	png_uint_32 width, height;
+	int bit_depth;
+	int color_type, interlace_type;
+
+	png_get_IHDR(png_ptr, info_ptr, &width, &height, &bit_depth, &color_type, &interlace_type, NULL, NULL);
+
+	struct image *i = malloc(sizeof(struct image));
+	i->width = width;
+	i->height = height; 
+	i->depth = png_get_channels(png_ptr, info_ptr);
+	i->buf = malloc(i->width * i->height * i->depth);
+
+	unsigned int row_bytes = png_get_rowbytes(png_ptr, info_ptr);
+	png_bytepp row_pointers = png_get_rows(png_ptr, info_ptr);
+
+	int n;
+	for (n = 0; n < i->height; n++) {
+		memcpy(i->buf + row_bytes * n, row_pointers[n], row_bytes);
+	}
+
+	png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
 	return i;
 }
 
