@@ -159,10 +159,14 @@ int main(int argc, char **argv) {
 	char *outfile = NULL;
 	int tilesize = 256;
 
-	while ((i = getopt(argc, argv, "o:")) != -1) {
+	while ((i = getopt(argc, argv, "o:t:")) != -1) {
 		switch (i) {
 		case 'o':
 			outfile = optarg;
+			break;
+
+		case 't':
+			tilesize = atoi(optarg);
 			break;
 
 		default:
@@ -209,11 +213,11 @@ int main(int argc, char **argv) {
 	unsigned int tx2 = x2 >> (32 - zoom);
 	unsigned int ty2 = y2 >> (32 - zoom);
 
-	unsigned int xa = (x1 >> (32 - (zoom + 8))) & 0xFF;
-	unsigned int ya = (y1 >> (32 - (zoom + 8))) & 0xFF;
+	unsigned int xa = ((x1 >> (32 - (zoom + 8))) & 0xFF) * tilesize / 256;
+	unsigned int ya = ((y1 >> (32 - (zoom + 8))) & 0xFF) * tilesize / 256;
 
-	unsigned int xb = 255 - ((x2 >> (32 - (zoom + 8))) & 0xFF);
-	unsigned int yb = 255 - ((y2 >> (32 - (zoom + 8))) & 0xFF);
+	unsigned int xb = (255 - ((x2 >> (32 - (zoom + 8))) & 0xFF)) * tilesize / 256;
+	unsigned int yb = (255 - ((y2 >> (32 - (zoom + 8))) & 0xFF)) * tilesize / 256;
 
 	fprintf(stderr, "at zoom level %d, that's %u/%u to %u/%u\n", zoom,
 		tx1, ty1, tx2, ty2);
@@ -317,6 +321,11 @@ int main(int argc, char **argv) {
 
 				free(data.buf);
 				curl_easy_cleanup(curl);
+
+				if (i->height != tilesize || i->width != tilesize) {
+					fprintf(stderr, "Got %dx%d tile, not %d\n", i->width, i->height, tilesize);
+					exit(EXIT_FAILURE);
+				}
 
 				int x, y;
 				for (y = 0; y < i->height; y++) {
