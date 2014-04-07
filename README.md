@@ -32,6 +32,7 @@ as option flags.
 Requirements
 ------------
 
+  * pkg-config
   * libcurl to retrieve the tiles
   * libjpeg >= 8 for jpeg_mem_src
   * libpng
