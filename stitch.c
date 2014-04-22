@@ -325,25 +325,26 @@ int main(int argc, char **argv) {
 						}
 
 						if (i->depth == 4) {
-							double r = buf[((y + yoff) * width + x + xoff) * 4 + 0] / 255.0;
-							double g = buf[((y + yoff) * width + x + xoff) * 4 + 1] / 255.0;
-							double b = buf[((y + yoff) * width + x + xoff) * 4 + 2] / 255.0;
-							double a = buf[((y + yoff) * width + x + xoff) * 4 + 3] / 255.0;
+							double as = buf[((y + yoff) * width + x + xoff) * 4 + 3] / 255.0;
+							double rs = buf[((y + yoff) * width + x + xoff) * 4 + 0] / 255.0 * as;
+							double gs = buf[((y + yoff) * width + x + xoff) * 4 + 1] / 255.0 * as;
+							double bs = buf[((y + yoff) * width + x + xoff) * 4 + 2] / 255.0 * as;
 
-							double nr = i->buf[(y * i->width + x) * 4 + 0] / 255.0;
-							double ng = i->buf[(y * i->width + x) * 4 + 1] / 255.0;
-							double nb = i->buf[(y * i->width + x) * 4 + 2] / 255.0;
-							double na = i->buf[(y * i->width + x) * 4 + 3] / 255.0;
+							double ad = i->buf[(y * i->width + x) * 4 + 3] / 255.0;
+							double rd = i->buf[(y * i->width + x) * 4 + 0] / 255.0 * ad;
+							double gd = i->buf[(y * i->width + x) * 4 + 1] / 255.0 * ad;
+							double bd = i->buf[(y * i->width + x) * 4 + 2] / 255.0 * ad;
 
-							r = r * (1 - na) + nr * na;
-							g = g * (1 - na) + ng * na;
-							b = b * (1 - na) + nb * na;
-							a = a * (1 - na) + na * na;
+							// https://code.google.com/p/pulpcore/wiki/TutorialBlendModes
+							double ar = as * (1 - ad) + ad;
+							double rr = rs * (1 - ad) + rd;
+							double gr = gs * (1 - ad) + gd;
+							double br = bs * (1 - ad) + bd;
 
-							buf[((y + yoff) * width + x + xoff) * 4 + 0] = r * 255.0;
-							buf[((y + yoff) * width + x + xoff) * 4 + 1] = g * 255.0;
-							buf[((y + yoff) * width + x + xoff) * 4 + 2] = b * 255.0;
-							buf[((y + yoff) * width + x + xoff) * 4 + 3] = a * 255.0;
+							buf[((y + yoff) * width + x + xoff) * 4 + 3] = ar * 255.0;
+							buf[((y + yoff) * width + x + xoff) * 4 + 0] = rr / ar* 255.0;
+							buf[((y + yoff) * width + x + xoff) * 4 + 1] = gr / ar * 255.0;
+							buf[((y + yoff) * width + x + xoff) * 4 + 2] = br / ar * 255.0;
 						} else if (i->depth == 3) {
 							buf[((y + yoff) * width + x + xoff) * 4 + 0] = i->buf[(y * i->width + x) * 3 + 0];
 							buf[((y + yoff) * width + x + xoff) * 4 + 1] = i->buf[(y * i->width + x) * 3 + 1];
