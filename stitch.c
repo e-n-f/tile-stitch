@@ -355,7 +355,7 @@ int main(int argc, char **argv) {
 							double br = bs * (1 - ad) + bd;
 
 							buf[((y + yoff) * width + x + xoff) * 4 + 3] = ar * 255.0;
-							buf[((y + yoff) * width + x + xoff) * 4 + 0] = rr / ar* 255.0;
+							buf[((y + yoff) * width + x + xoff) * 4 + 0] = rr / ar * 255.0;
 							buf[((y + yoff) * width + x + xoff) * 4 + 1] = gr / ar * 255.0;
 							buf[((y + yoff) * width + x + xoff) * 4 + 2] = br / ar * 255.0;
 						} else if (i->depth == 3) {
