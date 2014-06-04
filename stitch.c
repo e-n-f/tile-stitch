@@ -216,16 +216,18 @@ int main(int argc, char **argv) {
 	unsigned int xa = ((x1 >> (32 - (zoom + 8))) & 0xFF) * tilesize / 256;
 	unsigned int ya = ((y1 >> (32 - (zoom + 8))) & 0xFF) * tilesize / 256;
 
-	unsigned int xb = (255 - ((x2 >> (32 - (zoom + 8))) & 0xFF)) * tilesize / 256;
-	unsigned int yb = (255 - ((y2 >> (32 - (zoom + 8))) & 0xFF)) * tilesize / 256;
-
 	fprintf(stderr, "at zoom level %d, that's %u/%u to %u/%u\n", zoom,
 		tx1, ty1, tx2, ty2);
 
-	fprintf(stderr, "borders %u,%u %u,%u\n", xa, ya, xb, yb);
+	{
+		unsigned int xb = (255 - ((x2 >> (32 - (zoom + 8))) & 0xFF)) * tilesize / 256;
+		unsigned int yb = (255 - ((y2 >> (32 - (zoom + 8))) & 0xFF)) * tilesize / 256;
 
-	int width = (tx2 - tx1 + 1) * tilesize - xa - xb;
-	int height = (ty2 - ty1 + 1) * tilesize - ya - yb;
+		fprintf(stderr, "borders %u,%u %u,%u\n", xa, ya, xb, yb);
+	}
+
+	int width = ((x2 >> (32 - (zoom + 8))) - (x1 >> (32 - (zoom + 8)))) * tilesize / 256;
+	int height = ((y2 >> (32 - (zoom + 8))) - (y1 >> (32 - (zoom + 8)))) * tilesize / 256;
 	fprintf(stderr, "%dx%d\n", width, height);
 
 	long long dim = (long long) width * height;
