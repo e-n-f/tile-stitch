@@ -16,9 +16,9 @@ To get the MapQuest Open Aerial imagery at zoom level 11 to match the "See Somet
 
     $ ./stitch -o london.png -- 51.316252 -0.366258 51.606525 0.099606 11 http://otile1.mqcdn.com/tiles/1.0.0/sat/{z}/{x}/{y}.jpg
 
-To get Stamen's watercolor map at zoom level 10 for an area around Tokyo:
+To get a 640x480 image from Stamen's watercolor map at zoom level 10 around Tokyo:
 
-    $ ./stitch -o tokyo.png -- 35.115 139.261 36.166 140.167 10 http://b.tile.stamen.com/watercolor/{z}/{x}/{y}.jpg
+    $ ./stitch -o tokyo.png -c -- 35.6824 139.7531 640 480 10 http://b.tile.stamen.com/watercolor/{z}/{x}/{y}.jpg
 
 Format
 ------

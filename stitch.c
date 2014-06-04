@@ -9,6 +9,7 @@
 
 void usage(char **argv) {
 	fprintf(stderr, "Usage: %s [-o outfile] minlat minlon maxlat maxlon zoom http://whatever/{z}/{x}/{y}.png ...\n", argv[0]);
+	fprintf(stderr, "Usage: %s [-o outfile] -c lat lon width height zoom http://whatever/{z}/{x}/{y}.png ...\n", argv[0]);
 }
 
 // http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
@@ -18,6 +19,14 @@ void latlon2tile(double lat, double lon, int zoom, unsigned int *x, unsigned int
 
 	*x = n * ((lon + 180) / 360);
 	*y = n * (1 - (log(tan(lat_rad) + 1/cos(lat_rad)) / M_PI)) / 2;
+}
+
+// http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
+void tile2latlon(unsigned int x, unsigned int y, int zoom, double *lat, double *lon) {
+	unsigned long long n = 1LL << zoom;
+	*lon = 360.0 * x / n - 180.0;
+	double lat_rad = atan(sinh(M_PI * (1 - 2.0 * y / n)));
+	*lat = lat_rad * 180 / M_PI;
 }
 
 struct data {
@@ -158,8 +167,9 @@ int main(int argc, char **argv) {
 
 	char *outfile = NULL;
 	int tilesize = 256;
+	int centered = 0;
 
-	while ((i = getopt(argc, argv, "o:t:")) != -1) {
+	while ((i = getopt(argc, argv, "o:t:c")) != -1) {
 		switch (i) {
 		case 'o':
 			outfile = optarg;
@@ -167,6 +177,10 @@ int main(int argc, char **argv) {
 
 		case 't':
 			tilesize = atoi(optarg);
+			break;
+
+		case 'c':
+			centered = 1;
 			break;
 
 		default:
@@ -203,10 +217,32 @@ int main(int argc, char **argv) {
 			exit(EXIT_FAILURE);
 		}
 	}
-	
+
 	unsigned int x1, y1, x2, y2;
-	latlon2tile(maxlat, minlon, 32, &x1, &y1);
-	latlon2tile(minlat, maxlon, 32, &x2, &y2);
+
+	if (centered) {
+		latlon2tile(minlat, minlon, 32, &x1, &y1);
+		latlon2tile(minlat, minlon, 32, &x2, &y2);
+
+		int width = atoi(argv[optind + 2]);
+		int height = atoi(argv[optind + 3]);
+
+		if (width <= 0 || height <= 0) {
+			fprintf(stderr, "Width/height less than 0: %d %d\n", width, height);
+			exit(EXIT_FAILURE);
+		}
+
+		x1 = x1 - (width << (32 - (zoom + 8))) / 2;
+		y1 = y1 - (height << (32 - (zoom + 8))) / 2;
+		x2 = x2 + (width << (32 - (zoom + 8))) / 2;
+		y2 = y2 + (height << (32 - (zoom + 8))) / 2;
+
+		tile2latlon(x1, y1, 32, &maxlat, &minlon);
+		tile2latlon(x2, y2, 32, &minlat, &maxlon);
+	} else {
+		latlon2tile(maxlat, minlon, 32, &x1, &y1);
+		latlon2tile(minlat, maxlon, 32, &x2, &y2);
+	}
 
 	unsigned int tx1 = x1 >> (32 - zoom);
 	unsigned int ty1 = y1 >> (32 - zoom);
@@ -216,15 +252,9 @@ int main(int argc, char **argv) {
 	unsigned int xa = ((x1 >> (32 - (zoom + 8))) & 0xFF) * tilesize / 256;
 	unsigned int ya = ((y1 >> (32 - (zoom + 8))) & 0xFF) * tilesize / 256;
 
-	fprintf(stderr, "at zoom level %d, that's %u/%u to %u/%u\n", zoom,
+	fprintf(stderr, "at zoom level %d, %f,%f to %f,%f is %u/%u to %u/%u\n", zoom,
+		minlat, minlon, maxlat, maxlon,
 		tx1, ty1, tx2, ty2);
-
-	{
-		unsigned int xb = (255 - ((x2 >> (32 - (zoom + 8))) & 0xFF)) * tilesize / 256;
-		unsigned int yb = (255 - ((y2 >> (32 - (zoom + 8))) & 0xFF)) * tilesize / 256;
-
-		fprintf(stderr, "borders %u,%u %u,%u\n", xa, ya, xb, yb);
-	}
 
 	int width = ((x2 >> (32 - (zoom + 8))) - (x1 >> (32 - (zoom + 8)))) * tilesize / 256;
 	int height = ((y2 >> (32 - (zoom + 8))) - (y1 >> (32 - (zoom + 8)))) * tilesize / 256;
