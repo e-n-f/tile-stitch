@@ -19,6 +19,10 @@ To get the MapQuest Open Aerial imagery at zoom level 11 to match the "See Somet
 To get a 640x480 image from Stamen's watercolor map at zoom level 10 around Tokyo:
 
     $ ./stitch -o tokyo.png -c -- 35.6824 139.7531 640 480 10 http://b.tile.stamen.com/watercolor/{z}/{x}/{y}.jpg
+    
+To get 512x512 retina tiles of Stamen's Toner tiles at zoom level 14 around Köln:
+
+    $ ./stitch -o köln.png -t 512 -- 50.88 6.88 50.98 7.04 14 http://b.tile.stamen.com/toner/{z}/{x}/{y}@2x.png
 
 Format
 ------
