@@ -7,6 +7,9 @@
 #include <jpeglib.h>
 #include <png.h>
 
+// 2 * pi * 6378137 / 2.0
+static const double originshift=20037508.342789244;
+
 void usage(char **argv) {
 	fprintf(stderr, "Usage: %s [-o outfile] minlat minlon maxlat maxlon zoom http://whatever/{z}/{x}/{y}.png ...\n", argv[0]);
 	fprintf(stderr, "Usage: %s [-o outfile] -c lat lon width height zoom http://whatever/{z}/{x}/{y}.png ...\n", argv[0]);
@@ -27,6 +30,23 @@ void tile2latlon(unsigned int x, unsigned int y, int zoom, double *lat, double *
 	*lon = 360.0 * x / n - 180.0;
 	double lat_rad = atan(sinh(M_PI * (1 - 2.0 * y / n)));
 	*lat = lat_rad * 180 / M_PI;
+}
+
+void projectlatlon(double lat, double lon, double *x, double *y) {
+		//Converts given lat/lon in WGS84 Datum to XY in Spherical Mercator EPSG:900913
+		*x = lon * originshift / 180.0;
+		*y = log( tan((90 + lat) * M_PI / 360.0 )) / (M_PI / 180.0);
+		*y = *y * originshift / 180.0;
+}
+
+void writeworldfile(){
+// 	pixelsize=
+// 	Line 1: A: pixel size in the x-direction in map units/pixel
+// 	Line 2: D: rotation about y-axis
+// Line 3: B: rotation about x-axis
+// Line 4: E: pixel size in the y-direction in map units, almost always negative[3]
+// Line 5: C: x-coordinate of the center of the upper left pixel
+// Line 6: F: y-coordinate of the center of the upper left pixel
 }
 
 struct data {
@@ -144,7 +164,7 @@ struct image *read_png(char *s, int len) {
 
 	struct image *i = malloc(sizeof(struct image));
 	i->width = width;
-	i->height = height; 
+	i->height = height;
 	i->depth = png_get_channels(png_ptr, info_ptr);
 	i->buf = malloc(i->width * i->height * i->depth);
 
@@ -201,7 +221,7 @@ int main(int argc, char **argv) {
 	int zoom = atoi(argv[optind + 4]);
 
 	if (zoom < 0) {
-		fprintf(stderr, "Zoom %d less than 0\n", zoom);
+		fprintf(stderr, "Zoom %u less than 0\n", zoom);
 		exit(EXIT_FAILURE);
 	}
 
@@ -228,7 +248,7 @@ int main(int argc, char **argv) {
 		int height = atoi(argv[optind + 3]);
 
 		if (width <= 0 || height <= 0) {
-			fprintf(stderr, "Width/height less than 0: %d %d\n", width, height);
+			fprintf(stderr, "Width/height less than 0: %u %u\n", width, height);
 			exit(EXIT_FAILURE);
 		}
 
@@ -237,8 +257,8 @@ int main(int argc, char **argv) {
 		x2 = x2 + (width << (32 - (zoom + 8))) / 2;
 		y2 = y2 + (height << (32 - (zoom + 8))) / 2;
 
-		tile2latlon(x1, y1, 32, &maxlat, &minlon);
-		tile2latlon(x2, y2, 32, &minlat, &maxlon);
+		tile2latlon(x1, y1, zoom, &maxlat, &minlon);
+		tile2latlon(x2, y2, zoom, &minlat, &maxlon);
 	} else {
 		latlon2tile(maxlat, minlon, 32, &x1, &y1);
 		latlon2tile(minlat, maxlon, 32, &x2, &y2);
@@ -249,20 +269,32 @@ int main(int argc, char **argv) {
 	unsigned int tx2 = x2 >> (32 - zoom);
 	unsigned int ty2 = y2 >> (32 - zoom);
 
+	double miny, minx, maxy, maxx;
+	projectlatlon(minlat, minlon, &minx, &miny);
+	projectlatlon(maxlat, maxlon, &maxx, &maxy);
+
+  fprintf(stderr, "Bounding Box:\n");
+	fprintf(stderr, "==Geodesic  (EPSG:4236): %.17g,%.17g to %.17g,%.17g\n",  minlat, minlon, maxlat, maxlon);
+	fprintf(stderr, "==Projected (EPSG:3785): %.17g,%.17g to %.17g,%.17g\n\n",  miny, minx, maxy, maxx);
+	fprintf(stderr, "==Zoom Level: %u\n", zoom);
+	fprintf(stderr, "==Upper Left Tile: x:%u y:%u\n", tx1, ty2);
+  fprintf(stderr, "==Lower Right Tile: x:%u y:%u\n\n", tx2, ty1);
+
 	unsigned int xa = ((x1 >> (32 - (zoom + 8))) & 0xFF) * tilesize / 256;
 	unsigned int ya = ((y1 >> (32 - (zoom + 8))) & 0xFF) * tilesize / 256;
 
-	fprintf(stderr, "at zoom level %d, %f,%f to %f,%f is %u/%u to %u/%u\n", zoom,
-		minlat, minlon, maxlat, maxlon,
-		tx1, ty1, tx2, ty2);
-
 	int width = ((x2 >> (32 - (zoom + 8))) - (x1 >> (32 - (zoom + 8)))) * tilesize / 256;
 	int height = ((y2 >> (32 - (zoom + 8))) - (y1 >> (32 - (zoom + 8)))) * tilesize / 256;
-	fprintf(stderr, "%dx%d\n", width, height);
+	fprintf(stderr, "Raster Size: %ux%u\n", width, height);
+
+	double px = (maxx - minx)/width;
+	double py = (fabs(maxy - miny))/height;
+  fprintf(stderr, "==Pixel Size: x:%.17g y:%.17g\n", px, py);
+
 
 	long long dim = (long long) width * height;
-	if (dim > 10000 * 10000) {
-		fprintf(stderr, "that's too big\n");
+	if (dim > 20000 * 20000) {
+		fprintf(stderr, "That's too big\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -271,7 +303,7 @@ int main(int argc, char **argv) {
 	if (buf == NULL) {
 		fprintf(stderr, "Can't allocate memory for %lld\n", dim * 4);
 	}
-	
+
 	unsigned int tx, ty;
 	for (tx = tx1; tx <= tx2; tx++) {
 		for (ty = ty1; ty <= ty2; ty++) {
