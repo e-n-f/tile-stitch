@@ -5,7 +5,7 @@ LDFLAGS := $(LDFLAGS)
 
 CURL_CFLAGS := $(shell pkg-config --cflags libcurl)
 PNG_CFLAGS := $(shell pkg-config --cflags libpng)
-CURL_LIBS := $(shell pkg-config --libs libcurl)
+CURL_LIBS := $(shell pkg-config --libs libcurl) -lcurl
 PNG_LIBS := $(shell pkg-config --libs libpng)
 
 stitch: stitch.c
@@ -13,3 +13,6 @@ stitch: stitch.c
 
 clean:
 	rm -f stitch
+
+indent:
+	clang-format -i -style="{BasedOnStyle: Google, IndentWidth: 8, UseTab: Always, AllowShortIfStatementsOnASingleLine: false, ColumnLimit: 0, ContinuationIndentWidth: 8, SpaceAfterCStyleCast: true, IndentCaseLabels: false, AllowShortBlocksOnASingleLine: false, AllowShortFunctionsOnASingleLine: false, SortIncludes: false}" stitch.c

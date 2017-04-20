@@ -20,7 +20,7 @@ void latlon2tile(double lat, double lon, int zoom, unsigned int *x, unsigned int
 	unsigned long long n = 1LL << zoom;
 
 	*x = n * ((lon + 180) / 360);
-	*y = n * (1 - (log(tan(lat_rad) + 1/cos(lat_rad)) / M_PI)) / 2;
+	*y = n * (1 - (log(tan(lat_rad) + 1 / cos(lat_rad)) / M_PI)) / 2;
 }
 
 // http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
@@ -33,9 +33,9 @@ void tile2latlon(unsigned int x, unsigned int y, int zoom, double *lat, double *
 
 // Convert lat/lon in WGS84 to XY in Spherical Mercator (EPSG:900913/3857)
 void projectlatlon(double lat, double lon, double *x, double *y) {
-	static const double originshift=20037508.342789244;// 2 * pi * 6378137 / 2
+	static const double originshift = 20037508.342789244;  // 2 * pi * 6378137 / 2
 	*x = lon * originshift / 180.0;
-	*y = log( tan((90 + lat) * M_PI / 360.0 )) / (M_PI / 180.0);
+	*y = log(tan((90 + lat) * M_PI / 360.0)) / (M_PI / 180.0);
 	*y = *y * originshift / 180.0;
 }
 
@@ -52,7 +52,8 @@ struct image {
 	int height;
 };
 
-enum outfileformat {OUTFMT_PNG, OUTFMT_GEOTIFF};
+enum outfileformat { OUTFMT_PNG,
+		     OUTFMT_GEOTIFF };
 
 size_t curl_receive(char *ptr, size_t size, size_t nmemb, void *v) {
 	struct data *data = v;
@@ -79,7 +80,7 @@ struct image *read_jpeg(char *s, int len) {
 	jpeg_start_decompress(&cinfo);
 
 	int row_stride = cinfo.output_width * cinfo.output_components;
-	JSAMPARRAY buffer = (*cinfo.mem->alloc_sarray) ((j_common_ptr) &cinfo, JPOOL_IMAGE, row_stride, 1);
+	JSAMPARRAY buffer = (*cinfo.mem->alloc_sarray)((j_common_ptr) &cinfo, JPOOL_IMAGE, row_stride, 1);
 
 	struct image *i = malloc(sizeof(struct image));
 	i->buf = malloc(cinfo.output_width * cinfo.output_height * cinfo.output_components);
@@ -201,11 +202,10 @@ int main(int argc, char **argv) {
 			break;
 
 		case 'f':
-			if (strcmp(optarg, "png") == 0){
-				 outfmt = OUTFMT_PNG;
-			}
-			else if (strcmp(optarg, "geotiff") == 0){
-				 outfmt = OUTFMT_GEOTIFF;
+			if (strcmp(optarg, "png") == 0) {
+				outfmt = OUTFMT_PNG;
+			} else if (strcmp(optarg, "geotiff") == 0) {
+				outfmt = OUTFMT_GEOTIFF;
 			}
 			break;
 
@@ -270,8 +270,8 @@ int main(int argc, char **argv) {
 	projectlatlon(minlat, minlon, &minx, &miny);
 	projectlatlon(maxlat, maxlon, &maxx, &maxy);
 
-	fprintf(stderr, "==Geodetic Bounds  (EPSG:4236): %.17g,%.17g to %.17g,%.17g\n",  minlat, minlon, maxlat, maxlon);
-	fprintf(stderr, "==Projected Bounds (EPSG:3785): %.17g,%.17g to %.17g,%.17g\n",  miny, minx, maxy, maxx);
+	fprintf(stderr, "==Geodetic Bounds  (EPSG:4236): %.17g,%.17g to %.17g,%.17g\n", minlat, minlon, maxlat, maxlon);
+	fprintf(stderr, "==Projected Bounds (EPSG:3785): %.17g,%.17g to %.17g,%.17g\n", miny, minx, maxy, maxx);
 	fprintf(stderr, "==Zoom Level: %u\n", zoom);
 	fprintf(stderr, "==Upper Left Tile: x:%u y:%u\n", tx1, ty2);
 	fprintf(stderr, "==Lower Right Tile: x:%u y:%u\n", tx2, ty1);
@@ -283,10 +283,9 @@ int main(int argc, char **argv) {
 	int height = ((y2 >> (32 - (zoom + 8))) - (y1 >> (32 - (zoom + 8)))) * tilesize / 256;
 	fprintf(stderr, "==Raster Size: %ux%u\n", width, height);
 
-	double px = (maxx - minx)/width;
-	double py = (fabs(maxy - miny))/height;
+	double px = (maxx - minx) / width;
+	double py = (fabs(maxy - miny)) / height;
 	fprintf(stderr, "==Pixel Size: x:%.17g y:%.17g\n", px, py);
-
 
 	long long dim = (long long) width * height;
 	if (dim > 10000 * 10000) {
@@ -439,7 +438,7 @@ int main(int argc, char **argv) {
 	}
 
 	unsigned char *rows[height];
-	for (i = 0 ; i < height; i++) {
+	for (i = 0; i < height; i++) {
 		rows[i] = buf + i * (4 * width);
 	}
 
@@ -452,8 +451,8 @@ int main(int argc, char **argv) {
 				perror(outfile);
 				exit(EXIT_FAILURE);
 			}
-		}
-		else fprintf(stderr, "Output PNG: stdout\n");
+		} else
+			fprintf(stderr, "Output PNG: stdout\n");
 		png_structp png_ptr;
 		png_infop info_ptr;
 
@@ -485,10 +484,10 @@ int main(int argc, char **argv) {
 
 		if (outfile != NULL) {
 			fprintf(stderr, "Output PNG: %s\n", outfile);
-			TIFF *tif=(TIFF*)0;  /* TIFF-level descriptor */
-			GTIF *gtif=(GTIF*)0; /* GeoKey-level descriptor */
+			TIFF *tif = (TIFF *) 0;  /* TIFF-level descriptor */
+			GTIF *gtif = (GTIF *) 0; /* GeoKey-level descriptor */
 
-			tif=XTIFFOpen(outfile, "w");
+			tif = XTIFFOpen(outfile, "w");
 			if (!tif) {
 				fprintf(stderr, "TIF failure (open)\n");
 				exit(EXIT_FAILURE);
@@ -502,33 +501,33 @@ int main(int argc, char **argv) {
 
 			//georeference the image using the upper left projected bound
 			//as a tie point, and the pixel scale
-			double pixscale[3]={px, py, 0};
-			double tiepoints[6]={0,0,0,minx,maxy,0.0};
+			double pixscale[3] = {px, py, 0};
+			double tiepoints[6] = {0, 0, 0, minx, maxy, 0.0};
 			TIFFSetField(tif, TIFFTAG_GEOPIXELSCALE, 3, pixscale);
-			TIFFSetField(tif, TIFFTAG_GEOTIEPOINTS,  6, tiepoints);
+			TIFFSetField(tif, TIFFTAG_GEOTIEPOINTS, 6, tiepoints);
 
-			TIFFSetField(tif, TIFFTAG_IMAGEWIDTH,      width);
-			TIFFSetField(tif, TIFFTAG_IMAGELENGTH,     height);
-			TIFFSetField(tif, TIFFTAG_COMPRESSION,     COMPRESSION_LZW);
-			TIFFSetField(tif, TIFFTAG_PREDICTOR,       2); //(horizontal differencing)
-			TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE,   8);
-			TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP,    20L);
-			TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 4); //RGB+ALPHA
-			TIFFSetField(tif, TIFFTAG_PLANARCONFIG,    PLANARCONFIG_CONTIG);
-			TIFFSetField(tif, TIFFTAG_PHOTOMETRIC,     PHOTOMETRIC_RGB);
+			TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, width);
+			TIFFSetField(tif, TIFFTAG_IMAGELENGTH, height);
+			TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_LZW);
+			TIFFSetField(tif, TIFFTAG_PREDICTOR, 2);  //(horizontal differencing)
+			TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8);
+			TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, 20L);
+			TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 4);  //RGB+ALPHA
+			TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+			TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
 
-			GTIFKeySet(gtif, GTModelTypeGeoKey,      TYPE_SHORT, 1, ModelTypeProjected);
-			GTIFKeySet(gtif, GTRasterTypeGeoKey,     TYPE_SHORT, 1, RasterPixelIsArea);
-			GTIFKeySet(gtif, GTCitationGeoKey,       TYPE_ASCII, 0, "WGS 84 / Pseudo-Mercator");
-			GTIFKeySet(gtif, GeogCitationGeoKey,     TYPE_ASCII, 0, "WGS 84");
+			GTIFKeySet(gtif, GTModelTypeGeoKey, TYPE_SHORT, 1, ModelTypeProjected);
+			GTIFKeySet(gtif, GTRasterTypeGeoKey, TYPE_SHORT, 1, RasterPixelIsArea);
+			GTIFKeySet(gtif, GTCitationGeoKey, TYPE_ASCII, 0, "WGS 84 / Pseudo-Mercator");
+			GTIFKeySet(gtif, GeogCitationGeoKey, TYPE_ASCII, 0, "WGS 84");
 			GTIFKeySet(gtif, GeogAngularUnitsGeoKey, TYPE_SHORT, 1, Angular_Degree);
-			GTIFKeySet(gtif, GeogLinearUnitsGeoKey,  TYPE_SHORT, 1, Linear_Meter);
-			GTIFKeySet(gtif, ProjectedCSTypeGeoKey,  TYPE_SHORT, 1, 3857);
+			GTIFKeySet(gtif, GeogLinearUnitsGeoKey, TYPE_SHORT, 1, Linear_Meter);
+			GTIFKeySet(gtif, ProjectedCSTypeGeoKey, TYPE_SHORT, 1, 3857);
 
 			//write raster image
-			for (i=0;i<height;i++) {
+			for (i = 0; i < height; i++) {
 				if (!TIFFWriteScanline(tif, rows[i], i, 0)) {
-					TIFFError("WriteImage","failure in WriteScanline\n");
+					TIFFError("WriteImage", "failure in WriteScanline\n");
 					exit(EXIT_FAILURE);
 				}
 			}
@@ -536,46 +535,44 @@ int main(int argc, char **argv) {
 			GTIFWriteKeys(gtif);
 			GTIFFree(gtif);
 			XTIFFClose(tif);
-		}
-		else {
+		} else {
 			fprintf(stderr, "Can't write TIFF to stdout, sorry\n");
 			exit(EXIT_FAILURE);
 		}
 	}
 
 	//write world file
-	if (writeworldfile){
+	if (writeworldfile) {
 		if (outfile != NULL) {
 			char worldfile_filename[1024];
 			char worldfilext[5];
 			double wfvals[6];
-			FILE	*fp;
+			FILE *fp;
 
 			//todo, make sure the output image file has the right extension
-			if (outfmt == OUTFMT_PNG){
+			if (outfmt == OUTFMT_PNG) {
 				snprintf(worldfilext, sizeof worldfilext, ".pnw");
-			}
-			else if (outfmt == OUTFMT_GEOTIFF){
+			} else if (outfmt == OUTFMT_GEOTIFF) {
 				snprintf(worldfilext, sizeof worldfilext, ".tfw");
 			}
 
-			strncpy(worldfile_filename, outfile, sizeof(worldfile_filename)-4);
-			for (i = strlen(worldfile_filename)-1; i > 0; i--){
-				if( worldfile_filename[i] == '.' ){
-					strcpy( worldfile_filename + i, worldfilext );
+			strncpy(worldfile_filename, outfile, sizeof(worldfile_filename) - 4);
+			for (i = strlen(worldfile_filename) - 1; i > 0; i--) {
+				if (worldfile_filename[i] == '.') {
+					strcpy(worldfile_filename + i, worldfilext);
 					break;
 				}
 			}
 			if (i <= 0) {
-				strcat( worldfile_filename, worldfilext );
+				strcat(worldfile_filename, worldfilext);
 			}
 
-			wfvals[0] = px;   // x pixel resolution
-			wfvals[1] = 0;    // rotation
-			wfvals[2] = 0;    // rotation
-			wfvals[3] = -py;  // y pix resolution - negative as y direction is inverse of raster
-			wfvals[4] = minx; // top left x
-			wfvals[5] = maxy; // top left y
+			wfvals[0] = px;    // x pixel resolution
+			wfvals[1] = 0;     // rotation
+			wfvals[2] = 0;     // rotation
+			wfvals[3] = -py;   // y pix resolution - negative as y direction is inverse of raster
+			wfvals[4] = minx;  // top left x
+			wfvals[5] = maxy;  // top left y
 
 			fp = fopen(worldfile_filename, "wt");
 			if (fp == NULL) {
@@ -583,14 +580,13 @@ int main(int argc, char **argv) {
 				exit(EXIT_FAILURE);
 			}
 
-			for (i=0; i < 6; i++) {
+			for (i = 0; i < 6; i++) {
 				fprintf(fp, "%24.10f\n", wfvals[i]);
 			}
 
 			fclose(fp);
 			fprintf(stderr, "World file written to '%s'.\n", worldfile_filename);
-		}
-		else {
+		} else {
 			fprintf(stderr, "Can't write a worldfile when writing to stdout\n");
 		}
 	}
