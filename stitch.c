@@ -354,6 +354,7 @@ int main(int argc, char **argv) {
 
 				curl_easy_setopt(curl, CURLOPT_URL, url2);
 				curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+				curl_easy_setopt(curl, CURLOPT_USERAGENT, "tile-stitch/1.0.0");
 				curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
 				curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_receive);
 
