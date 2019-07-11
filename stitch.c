@@ -300,8 +300,11 @@ int main(int argc, char **argv) {
 	}
 
 	unsigned int tx, ty;
-	for (tx = tx1; tx <= tx2; tx++) {
-		for (ty = ty1; ty <= ty2; ty++) {
+	for (ty = ty1; ty <= ty2; ty++) {
+		for (tx = tx1; tx <= tx2; tx++) {
+			double progress = ((double) ty - ty1) / ((ty2 + 1) - ty1) +
+					  ((double) tx - tx1) / ((ty2 + 1) - ty1) / ((tx2 + 1) - tx1);
+
 			int xoff = (tx - tx1) * tilesize - xa;
 			int yoff = (ty - ty1) * tilesize - ya;
 
@@ -339,7 +342,7 @@ int main(int argc, char **argv) {
 				}
 
 				*out = '\0';
-				fprintf(stderr, "%s\n", url2);
+				fprintf(stderr, "%0.2f%%: %s\n", progress * 100, url2);
 
 				CURL *curl = curl_easy_init();
 				if (curl == NULL) {
