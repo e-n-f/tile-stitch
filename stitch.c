@@ -380,7 +380,9 @@ int main(int argc, char **argv) {
 				} else if (data.len >= 2 && memcmp(data.buf, "\xFF\xD8", 2) == 0) {
 					i = read_jpeg(data.buf, data.len);
 				} else {
-					fprintf(stderr, "Don't recognize file format\n");
+					/* if the tile is missing, don't warn */
+					if (data.len != 0)
+						fprintf(stderr, "Don't recognize file format\n");
 
 					free(data.buf);
 					curl_easy_cleanup(curl);
