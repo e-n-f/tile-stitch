@@ -494,7 +494,7 @@ int main(int argc, char **argv) {
 		//TODO : Handle writing to stdout if required
 
 		if (outfile != NULL) {
-			fprintf(stderr, "Output PNG: %s\n", outfile);
+			fprintf(stderr, "Output TIFF: %s\n", outfile);
 			TIFF *tif = (TIFF *) 0;  /* TIFF-level descriptor */
 			GTIF *gtif = (GTIF *) 0; /* GeoKey-level descriptor */
 
@@ -526,6 +526,10 @@ int main(int argc, char **argv) {
 			TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 4);  //RGB+ALPHA
 			TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
 			TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
+
+			uint16 out[1];
+			out[0] = EXTRASAMPLE_ASSOCALPHA;
+			TIFFSetField(tif, TIFFTAG_EXTRASAMPLES, 1, &out );
 
 			GTIFKeySet(gtif, GTModelTypeGeoKey, TYPE_SHORT, 1, ModelTypeProjected);
 			GTIFKeySet(gtif, GTRasterTypeGeoKey, TYPE_SHORT, 1, RasterPixelIsArea);
