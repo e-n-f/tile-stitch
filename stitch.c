@@ -176,7 +176,7 @@ struct image *read_png(char *s, int len) {
 int main(int argc, char **argv) {
 	extern int optind;
 	extern char *optarg;
-	int i;
+	long long i;
 
 	char *outfile = NULL;
 	int tilesize = 256;
@@ -288,7 +288,7 @@ int main(int argc, char **argv) {
 	fprintf(stderr, "==Pixel Size: x:%.17g y:%.17g\n", px, py);
 
 	long long dim = (long long) width * height;
-	if (dim > 10000 * 10000) {
+	if (dim > 35000 * 35000) {
 		fprintf(stderr, "that's too big\n");
 		exit(EXIT_FAILURE);
 	}
@@ -297,6 +297,7 @@ int main(int argc, char **argv) {
 	memset(buf, '\0', dim * 4);
 	if (buf == NULL) {
 		fprintf(stderr, "Can't allocate memory for %lld\n", dim * 4);
+		exit(EXIT_FAILURE);
 	}
 
 	unsigned int tx, ty;
@@ -390,7 +391,7 @@ int main(int argc, char **argv) {
 					exit(EXIT_FAILURE);
 				}
 
-				int x, y;
+				long long x, y;
 				for (y = 0; y < i->height; y++) {
 					for (x = 0; x < i->width; x++) {
 						int xd = x + xoff;
