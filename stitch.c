@@ -183,7 +183,7 @@ int main(int argc, char **argv) {
 	int centered = 0;
 	int outfmt = OUTFMT_PNG;
 	unsigned int writeworldfile = FALSE;
-	while ((i = getopt(argc, argv, "o:t:cf:w")) != -1) {
+	while ((i = getopt(argc, argv, "o:t:cf:ws:")) != -1) {
 		switch (i) {
 		case 'o':
 			outfile = optarg;
@@ -199,6 +199,10 @@ int main(int argc, char **argv) {
 
 		case 'w':
 			writeworldfile = TRUE;
+			break;
+
+		case 's':
+			tilesize = atoi(optarg);
 			break;
 
 		case 'f':
