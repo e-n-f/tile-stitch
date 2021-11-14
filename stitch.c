@@ -176,14 +176,14 @@ struct image *read_png(char *s, int len) {
 int main(int argc, char **argv) {
 	extern int optind;
 	extern char *optarg;
-	int i;
+	long long i;
 
 	char *outfile = NULL;
 	int tilesize = 256;
 	int centered = 0;
 	int outfmt = OUTFMT_PNG;
 	unsigned int writeworldfile = FALSE;
-	while ((i = getopt(argc, argv, "o:t:cf:w")) != -1) {
+	while ((i = getopt(argc, argv, "o:t:cf:ws:")) != -1) {
 		switch (i) {
 		case 'o':
 			outfile = optarg;
@@ -199,6 +199,10 @@ int main(int argc, char **argv) {
 
 		case 'w':
 			writeworldfile = TRUE;
+			break;
+
+		case 's':
+			tilesize = atoi(optarg);
 			break;
 
 		case 'f':
@@ -288,7 +292,7 @@ int main(int argc, char **argv) {
 	fprintf(stderr, "==Pixel Size: x:%.17g y:%.17g\n", px, py);
 
 	long long dim = (long long) width * height;
-	if (dim > 10000 * 10000) {
+	if (dim > 35000 * 35000) {
 		fprintf(stderr, "that's too big\n");
 		exit(EXIT_FAILURE);
 	}
@@ -297,6 +301,7 @@ int main(int argc, char **argv) {
 	memset(buf, '\0', dim * 4);
 	if (buf == NULL) {
 		fprintf(stderr, "Can't allocate memory for %lld\n", dim * 4);
+		exit(EXIT_FAILURE);
 	}
 
 	unsigned int tx, ty;
@@ -375,7 +380,9 @@ int main(int argc, char **argv) {
 				} else if (data.len >= 2 && memcmp(data.buf, "\xFF\xD8", 2) == 0) {
 					i = read_jpeg(data.buf, data.len);
 				} else {
-					fprintf(stderr, "Don't recognize file format\n");
+					/* if the tile is missing, don't warn */
+					if (data.len != 0)
+						fprintf(stderr, "Don't recognize file format\n");
 
 					free(data.buf);
 					curl_easy_cleanup(curl);
@@ -390,7 +397,7 @@ int main(int argc, char **argv) {
 					exit(EXIT_FAILURE);
 				}
 
-				int x, y;
+				long long x, y;
 				for (y = 0; y < i->height; y++) {
 					for (x = 0; x < i->width; x++) {
 						int xd = x + xoff;
@@ -487,7 +494,7 @@ int main(int argc, char **argv) {
 		//TODO : Handle writing to stdout if required
 
 		if (outfile != NULL) {
-			fprintf(stderr, "Output PNG: %s\n", outfile);
+			fprintf(stderr, "Output TIFF: %s\n", outfile);
 			TIFF *tif = (TIFF *) 0;  /* TIFF-level descriptor */
 			GTIF *gtif = (GTIF *) 0; /* GeoKey-level descriptor */
 
@@ -519,6 +526,10 @@ int main(int argc, char **argv) {
 			TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 4);  //RGB+ALPHA
 			TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
 			TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
+
+			uint16 out[1];
+			out[0] = EXTRASAMPLE_ASSOCALPHA;
+			TIFFSetField(tif, TIFFTAG_EXTRASAMPLES, 1, &out );
 
 			GTIFKeySet(gtif, GTModelTypeGeoKey, TYPE_SHORT, 1, ModelTypeProjected);
 			GTIFKeySet(gtif, GTRasterTypeGeoKey, TYPE_SHORT, 1, RasterPixelIsArea);
